@@ -222,6 +222,31 @@ class CUDAAllocator : public Allocator {
       c10::DeviceIndex device,
       MempoolId_t mempool_id) = 0;
   virtual void releasePool(c10::DeviceIndex device, MempoolId_t mempool_id) = 0;
+  virtual int getPoolUseCount(c10::DeviceIndex device, MempoolId_t mempool_id) {
+    TORCH_CHECK(
+        false,
+        name(),
+        " does not yet support getPoolUseCount. "
+        "If you need it, please file an issue describing your use case.");
+  }
+  virtual void maybeMakeNewPoolAndInc(
+      c10::DeviceIndex device,
+      MempoolId_t mempool_id) {
+    TORCH_CHECK(
+        false,
+        name(),
+        " does not yet support maybeMakeNewPoolAndInc. "
+        "If you need it, please file an issue describing your use case.");
+  }
+  virtual void decPoolUseCountAndMarkPoolFree(
+      c10::DeviceIndex device,
+      MempoolId_t mempool_id) {
+    TORCH_CHECK(
+        false,
+        name(),
+        " does not yet support decPoolUseCountAndMarkPoolFree. "
+        "If you need it, please file an issue describing your use case.");
+  }
   // returns true if the allocated blocks are equal to expected live allocations
   virtual bool checkPoolLiveAllocations(
       c10::DeviceIndex device,
@@ -417,6 +442,22 @@ inline void attachAllocatorTraceTracker(AllocatorTraceTracker tracker) {
 inline void releasePool(c10::DeviceIndex device, MempoolId_t mempool_id) {
   return get()->releasePool(device, mempool_id);
 }
+inline void maybeMakeNewPoolAndInc(
+    c10::DeviceIndex device,
+    MempoolId_t mempool_id) {
+  get()->maybeMakeNewPoolAndInc(device, mempool_id);
+}
+
+inline int getPoolUseCount(c10::DeviceIndex device, MempoolId_t mempool_id) {
+  return get()->getPoolUseCount(device, mempool_id);
+}
+
+inline void decPoolUseCountAndMarkPoolFree(
+    c10::DeviceIndex device,
+    MempoolId_t mempool_id) {
+  get()->decPoolUseCountAndMarkPoolFree(device, mempool_id);
+}
+
 // Not part of CUDA_ALLOCATOR_BACKEND_INTERFACE
 inline std::shared_ptr<void> getIpcDevPtr(std::string handle) {
   return get()->getIpcDevPtr(std::move(handle));
@@ -462,9 +503,11 @@ struct C10_CUDA_API MemPool {
   MemPool(
       CUDACachingAllocator::CUDAAllocator* allocator = nullptr,
       bool is_user_created = true);
+  ~MemPool();
 
   MempoolId_t id();
   CUDACachingAllocator::CUDAAllocator* allocator();
+  int use_count();
 
  private:
   static std::atomic<CaptureId_t> uid_;
@@ -472,6 +515,7 @@ struct C10_CUDA_API MemPool {
   CUDACachingAllocator::CUDAAllocator* allocator_;
   bool is_user_created_;
   MempoolId_t id_;
+  c10::DeviceIndex device_;
 };
 
 // MemPoolContext holds the currently active pool and stashes the previous
