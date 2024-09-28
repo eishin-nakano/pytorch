@@ -1443,6 +1443,7 @@ class SIMDScheduling(BaseScheduling):
             kernel.set_last_usage(current_reduction_nodes(node_schedule))
             all_indexing = {}
 
+            fused_node_names = {node.get_name() for node in node_schedule if isinstance(node, BaseSchedulerNode)}
             # First pass to collect indexing and decide inplace updates
             for node in node_schedule:
                 if node is DisableReduction:
@@ -1450,7 +1451,7 @@ class SIMDScheduling(BaseScheduling):
                 elif node is EnableReduction:
                     stack.close()
                 else:
-                    node.decide_inplace_update()
+                    node.decide_inplace_update(fused_node_names)
                     index_vars = kernel.split_and_set_ranges(node.get_ranges())
                     all_indexing.update(
                         dict.fromkeys(

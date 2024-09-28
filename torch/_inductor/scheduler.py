@@ -377,7 +377,7 @@ class BaseSchedulerNode:
     def has_side_effects(self) -> bool:
         return False
 
-    def decide_inplace_update(self) -> None:
+    def decide_inplace_update(self, fused_nodes: Optional[Set[str]] = None) -> None:
         """
         Decide if there should be inplace updates for the node
         and record the decision in the active kernel.
@@ -425,6 +425,12 @@ class BaseSchedulerNode:
                         for x in input_buf.users
                         if x.node.get_name() not in self.scheduler.completed_operations
                     ]
+                    # if all users are part of the same fused node, then no need to inline
+                    if fused_nodes:
+                        all_readers_in_fused = all(user.node.get_name() in fused_nodes
+                                                   for user in remaining_uses)
+                        if all_readers_in_fused:
+                                continue
                     if (
                         len(remaining_uses) == 1
                         and remaining_uses[0].can_inplace
